@@ -1,23 +1,24 @@
 %% -------------- Set Up --------------
     clear; clc; close all;
     sampleTime = 1e-6;
+    
 %% -------------- Parameter Assignment --------------
 % Note: SI Units are Used. (V, A, Ohm, H, rad/s, kgm^2 and Nm)
     RPMtoRad = @(rpm) 2*pi*rpm/60;
-    [Nominal_V, NoLoadSpeed, NoLoadCurrent] = deal(24, RPMtoRad(4360), 81.4e-3);
-    [Km,Jm, Jg] = deal(51e-3,92.5e-7, 0.7e-7);  %0.7e-7
-    [Rw, Lw] = deal(4.83,2.24e-3);
-    [GearBoxRatio,eff] = deal(1/79,0.7);
+    [Nominal_V, NoLoadSpeed, NoLoadCurrent] = deal(24, RPMtoRad(8270), 164e-3);
+    [Km,Jm, Jg] = deal(27.3e-3,72.8e-7, 1e-9);  %0.7e-7
+    [Rw, Lw] = deal(0.331,0.103e-3);
+    [GearBoxRatio,eff] = deal(1/83,1);  
 % Dynamic Damping Factor Estimation
     NoLoadTorque  =  Km * NoLoadCurrent;
     Bm = NoLoadTorque/NoLoadSpeed; 
     
 %% -------------- SimuLink Model ---------------------   
  KLoad = 0.95; MinLoadTorque = 5*NoLoadTorque;
- ExpectedSpeed = RPMtoRad(2000/79);% Specify it in RPM
- [Kp, Ki, Kd] = deal(10,1e3,1e-7);
- SimulationTime = 0.1;
-
+ ExpectedSpeed = RPMtoRad(8000/83);% Specify it in RPM
+ [Kp, Ki, Kd] = deal(1e-3,15,1e-11);
+ SimulationTime = 1e-1;
+ CF= 1000;
  ControllerPID;
  sim('ControllerPID',SimulationTime);
  
