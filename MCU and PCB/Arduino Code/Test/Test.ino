@@ -21,10 +21,12 @@ double oldError = 0;
 double desiredSpeed = 0;
 double speedRecord[3] = {0, 0, 0}; 
 
+// Test Signal;
+int toggle =0;
 void setup() {
   pinMode (phaseA, INPUT);
   pinMode (phaseB, INPUT);
-
+  pinMode  (49,OUTPUT);
   Serial.begin (115200);
 
   cli();//stop interrupts
@@ -40,13 +42,13 @@ void setup() {
   TIMSK4 |= (1 << OCIE4A);
 
   //Timer 2 is used for PID output
-  TCCR2A = 0;// set entire TCCR1A register to 0
-  TCCR2B = 0;// same for TCCR1B
-  TCNT2  = 0;//initialize counter value to 0
-  OCR2A = 31249;// = 16*10^6/(0.5*1024) -1
-  TCCR2B |= (1 << WGM12);
-  TCCR2B |= (1 << CS12) | (1 << CS10);  
-  TIMSK2 |= (1 << OCIE2A);
+  TCCR3A = 0;// set entire TCCR1A register to 0
+  TCCR3B = 0;// same for TCCR1B
+  TCNT3  = 0;//initialize counter value to 0
+  OCR3A = 15624;// = 16*10^6/(0.5*1024) -1
+  TCCR3B |= (1 << WGM12);
+  TCCR3B |= (1 << CS12) | (1 << CS10);  
+  TIMSK3 |= (1 << OCIE3A);
 
 
 
@@ -63,8 +65,18 @@ ISR(TIMER4_COMPA_vect)
   Serial.print ("\n");
 }
 
-ISR(TIMER2_COMPA_vect)
+ISR(TIMER3_COMPA_vect)
 {
+  if(toggle== 0)
+  {
+    digitalWrite(49, HIGH);
+    toggle = 1;  
+  }
+  else 
+  {
+    digitalWrite(49, LOW);
+    toggle = 0;  
+  }
   PID(desiredSpeed,speed);
 }
 
@@ -97,5 +109,3 @@ void PID(double desiredSpeed, double currentSpeed)
   speedRecord[1] = speedRecord[0];
   speedRecord[2] = speedRecord[1];
 }
-
-
