@@ -22,81 +22,80 @@ double desiredSpeed = 0;
 double speedRecord[3] = {0, 0, 0}; 
 
 // Test Signal;
-int toggle =0;
+int toggle =0, toggle2 =0;
 void setup() {
   pinMode (phaseA, INPUT);
   pinMode (phaseB, INPUT);
   pinMode  (49,OUTPUT);
+  pinMode  (48,OUTPUT);
   Serial.begin (115200);
 
   cli();//stop interrupts
 
 
-  // Timer 4 is used for Speed Calculation
-  TCCR4A = 0;// set entire TCCR1A register to 0
-  TCCR4B = 0;// same for TCCR1B
+// Timer 4 is used for Speed Calculation fsample = 2000Hz
+
+  TCCR4A = 0;// set entire TCCR4A register to 0
+  TCCR4B = 0;// same for TCCR4B
   TCNT4  = 0;//initialize counter value to 0
-  OCR4A = 15624;// = (16*10^6) / (1*1024) - 1 (must be <65536)
+  OCR4A = 49;// = (16*10^5) / (2000*1024) - 1 (must be <65536)
   TCCR4B |= (1 << WGM12);
-  TCCR4B |= (1 << CS12) | (1 << CS10);  
+  TCCR4B |= (1 << CS11)|(1 << CS10);  //64 pre-scale
   TIMSK4 |= (1 << OCIE4A);
 
-  //Timer 2 is used for PID output
-  TCCR3A = 0;// set entire TCCR1A register to 0
-  TCCR3B = 0;// same for TCCR1B
-  TCNT3  = 0;//initialize counter value to 0
-  OCR3A = 15624;// = 16*10^6/(0.5*1024) -1
+//Timer 3 is used for PID output fcontrol  = 1300 Hz
+  TCCR3A = 0;
+  TCCR3B = 0;
+  TCNT3  = 0;
+  OCR3A = 95;// = 16*10^5/(1300*1024) -1
   TCCR3B |= (1 << WGM12);
-  TCCR3B |= (1 << CS12) | (1 << CS10);  
+  TCCR3B |= (1 << CS11)|(1 << CS10);   
   TIMSK3 |= (1 << OCIE3A);
 
+int prescalerVal = 0x07; 
+TCCR1B &= ~prescalerVal; //AND the value in TCCR0B with binary number "11111000"
+//Now set the appropriate prescaler bits:
+prescalerVal = 2; //set prescalerVal equal to binary number "00000001"
+TCCR1B |= prescalerVal; //OR the value in TCCR0B with binary number "00000001"
 
+sei();// start interrupts
 
-  sei();// start interrupts
-  
 }
 
 ISR(TIMER4_COMPA_vect)
 {
-  speed = (counter/40.0)/1;
+  speed = (counter)/(1/2000.0);
   counter = 0;
   Serial.print ("Speed: ");
   Serial.print (speed);
   Serial.print ("\n");
+
 }
 
 ISR(TIMER3_COMPA_vect)
 {
-  if(toggle== 0)
-  {
-    digitalWrite(49, HIGH);
-    toggle = 1;  
-  }
-  else 
-  {
-    digitalWrite(49, LOW);
-    toggle = 0;  
-  }
-  PID(desiredSpeed,speed);
+  //PID(desiredSpeed,speed);
+  digitalWrite(49,toggle);
+  toggle =!toggle;
 }
 
 
 void loop() 
 {
-  
+
   int CurrentStateA  = digitalRead(phaseA);
   int CurrentStateB  = digitalRead(phaseB);
   if (LastStateA != CurrentStateA) 
     if   (CurrentStateB == LastStateA) counter--;
     else counter++;
-  LastStateA = CurrentStateA;
+   LastStateA = CurrentStateA;
 }
 
 
 
 void PID(double desiredSpeed, double currentSpeed)
 {
-  
+
   speedRecord[0] = currentSpeed;
   double SpeedWeighted = 0.7*speedRecord[0] + 0.2* speedRecord[1] + 0.1*speedRecord[2];
   double Error = desiredSpeed - SpeedWeighted;

@@ -8,7 +8,7 @@
     [Nominal_V, NoLoadSpeed, NoLoadCurrent] = deal(24, RPMtoRad(8270), 164e-3);
     [NominalTorque, NominalSpeed] = deal(108e-3, RPMtoRad(7710));
     [Km,Jm, Jg] = deal(27.3e-3,72.8e-7, 10.82e-7);  %0.7e-7
-    [Rw, Lw] = deal(0.331,150.103e-3);
+    [Rw, Lw] = deal(0.331,20.103e-3);
     [GearBoxRatio, i, effMax] = deal(1/63,63, 0.9);
     NominalEff = 1 -2*(1-effMax);
 % Dynamic Damping Factor Estimation
@@ -45,45 +45,45 @@
     % ------- Determine the controller Dynamics-------
         rla(OLXfer);
         figure;
-        [XferD, Kp, Ki, Kd] = PIDZero(OLXfer, OLXfer, 1e-5, 0, CF)  
+        %[XferD, Kp, Ki, Kd] = PIDZero(OLXfer, OLXfer, 1e-5, 0, CF)  
+        
+        [Kp,Ki,Kd] = deal(0.132030638852673,1, 0.004332668873738);
+        XferD =zpk([-15.1, -15.1],[0, -2600],1)
         
         
-        OLXferD = XferD * OLXfer; % Unity Gain OPEN LOOP PID control + OLXfer
-        
+        OLXferD = XferD * OLXfer; % Unity Gain PID control + OLXfer
     % ------- Determine Master Gain ---------------       
      % K = RecursiveSearch(1e-4,1e-4, 10, margin(OLXferD)/2, OLXferD, 0, 1);
      
     time =  0: 1e-3: 2;
-    Foward = XferD* AmpMotor  * MotorXfer * 1/s;
-    FBCK = uControl;
-    
-    bestKp = RecursiveSearch(1e-5,1, 1, margin(OLXferD)/2, time, Foward,FBCK, 1,10, 60, 1)
 
-     [Gm, PmBest, Wcg, Wcp] = margin(OLXferD*bestKp);
+    InitialGuess  = 1;
+    EndGuess = 0.9*KuA;
+    Step  = 1;
+    Foward = D * G_Xfer/s;
+    bestKp = RecursiveSearch(1e-3,1, 10, margin(OLXferD)/2, time, G_Xfer,H_Xfer, 1,10, 20, 1)
+
+     [Gm, PmBest, Wcg, Wcp] = margin(OLXferD*K);
      [Gm, PmTest, Wcg, Wcp] = margin(OLXferD);
-     K = bestKp;
+     
      % ------- Nyquist Plot---------------  
         figure;
-        nyqlog(OLXferD*bestKp);
+        nyqlog(OLXferD*K);
         figure;
         nyqlog(OLXferD);
         
        % Huristic Tuning
-       Ki = Ki/50;
-       Kd = Kd*1/20;
-       Kp = 1.25*Kp;
-       XferD = Kp + Ki*1/s + Kd*(2*CF*s)/(s+2 * CF)
-        
+       
+        XferD = Kp + Ki*1/s + Kd*(2*CF*s)/(s+2 * CF) ;
  %% -------------- Simulation --------------          
-        SimulationTime = 3;
+        SimulationTime = 2;
         ControllerPID;
-        ExpectedPosition= pi/2;% Specify it in rad
+        ExpectedPosition= pi;% Specify it in rad
         sim('ControllerPID',SimulationTime);
     
 
 
  %% ------------- Figures ---------------------------------
- figure;
 omegaM =ans.AngularVelocityM.Data;
 torque = ans.torque.Data;
 current = ans.current.Data;
@@ -138,10 +138,10 @@ function [XferD, Kp, Ki, Kd] = PIDZero(orgSys, sys, precision, LastPXO, CF)
 
    if( LastPXO <= target * (1+precision*10) &&LastPXO >= target * (1-precision*10) )     
         XferDzero = [-LastPXO/10, -LastPXO/10];
+        XferD = zpk(XferDzero, XferDPole, 1);
         Ki = 1;
         Kp = (2)/(LastPXO/10) - 1/(2*CF);
-        Kd = 1/((LastPXO/10)^2) - Kp/(2*CF);
-        XferD = Kp + Ki*1/s + Kd*(2*CF*s)/(s+2 * CF);
+        Kd = 1/(LastPXO/10)^2 - Kp/(2*CF);
    else 
         if(LastPXO > target) 
             Zt = abs(LastPXO - (LastPXO-target)/2)/10 ;
@@ -243,7 +243,7 @@ function bestKp = KpSearch(startingPoint, increment, endPoint, time, Foward,H_Xf
 if(config == 1)     
     if(FirstOrderFlag==0) 
         [PeakTime, RiseTime, SettleTime, Overshoot] =  SecondOrderApproxCoeff(TF, time, figureHandle, 0);
-        if(LowestTime>=PeakTime + RiseTime + SettleTime && RiseTime > 0.15 && SettleTime < 1.5 &&  Overshoot < overshootPercent ) 
+        if(LowestTime>=PeakTime + RiseTime + SettleTime && RiseTime > 0.5 &&  Overshoot < overshootPercent ) 
             figure(figureHandle); legend();
             [PeakTime, RiseTime, SettleTime, Overshoot] =  SecondOrderApproxCoeff(TF, time, figureHandle, 1);
             LowestTime = PeakTime + RiseTime + RiseTime;
